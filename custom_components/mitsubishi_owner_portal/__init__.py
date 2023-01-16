@@ -32,9 +32,6 @@ DEFAULT_API_BASE = 'https://connect.mitsubishi-motors.co.jp/'
 
 SUPPORTED_DOMAINS = [
     'sensor',
-    'binary_sensor',
-    'switch',
-    'select',
 ]
 
 ACCOUNT_SCHEMA = vol.Schema(
