@@ -1,0 +1,8 @@
+{
+  "domain": "mitsubishi_owner_portal",
+  "name": "Mitsubishi Owner Portal",
+  "version": "0.0.1",
+  "requirements": [],
+  "codeowners": [],
+  "iot_class": "cloud_polling"
+}
