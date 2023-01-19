@@ -30,17 +30,6 @@ async def async_setup_platform(hass: HomeAssistant, config, async_add_entities, 
     await async_setup_accounts(hass, ENTITY_DOMAIN)
 
     platform = entity_platform.async_get_current_platform()
-    platform.async_register_entity_service(
-        'request_api',
-        {
-            vol.Required('api'): cv.string,
-            vol.Optional('params', default={}): vol.Any(dict, None),
-            vol.Optional('method', default='GET'): cv.string,
-            vol.Optional('throw', default=True): cv.boolean,
-        },
-        'async_request_api',
-    )
-
 
 class MitsubishiOwnerPortalSensorEntity(MitsubishiOwnerPortalEntity, SensorEntity):
     """ MitsubishiOwnerPortalSensorEntity """

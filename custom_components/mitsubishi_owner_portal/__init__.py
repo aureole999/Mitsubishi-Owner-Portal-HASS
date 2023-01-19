@@ -4,6 +4,7 @@ import datetime
 import time
 
 import voluptuous as vol
+from homeassistant.components.sensor import SensorDeviceClass
 
 from homeassistant.core import HomeAssistant
 from homeassistant.const import *
@@ -27,6 +28,9 @@ SCAN_INTERVAL = datetime.timedelta(minutes=1)
 CONF_ACCOUNTS = 'accounts'
 CONF_API_BASE = 'api_base'
 CONF_USER_ID = 'uid'
+CONF_REFRESH_TOKEN = 'refresh_token'
+CONF_TOKEN_TIME = 'token_time'
+CONF_REFRESH_TOKEN_TIME = 'refresh_token_time'
 
 DEFAULT_API_BASE = 'https://connect.mitsubishi-motors.co.jp/'
 
@@ -124,6 +128,18 @@ class MitsubishiOwnerPortalAccount:
         return self._config.get(CONF_TOKEN) or ''
 
     @property
+    def token_time(self):
+        return self._config.get(CONF_TOKEN_TIME) or ''
+
+    @property
+    def refresh_token(self):
+        return self._config.get(CONF_REFRESH_TOKEN) or ''
+
+    @property
+    def refresh_token_time(self):
+        return self._config.get(CONF_REFRESH_TOKEN_TIME) or ''
+
+    @property
     def update_interval(self):
         return self.get_config(CONF_SCAN_INTERVAL) or SCAN_INTERVAL
 
@@ -177,7 +193,28 @@ class MitsubishiOwnerPortalAccount:
             return False
         self._config.update({
             CONF_TOKEN: access_token,
+            CONF_TOKEN_TIME: time.time(),
+            CONF_REFRESH_TOKEN: rsp.get('refresh_token'),
+            CONF_REFRESH_TOKEN_TIME: time.time(),
             CONF_USER_ID: account_dn,
+        })
+        return True
+
+    async def async_refresh_token(self):
+        if time.time() - self.refresh_token_time > 2590000:
+            return await self.async_login()
+        pms = {
+            'grant_type': 'refresh_token',
+            'refresh_token': self.refresh_token,
+        }
+        rsp = await self.request(f'auth/v1/token', pms, 'POST')
+        access_token = rsp.get('access_token')
+        if not access_token:
+            _LOGGER.warning('Mitsubishi owner portal refresh token failed: %s', rsp)
+            return await self.async_login()
+        self._config.update({
+            CONF_TOKEN: access_token,
+            CONF_TOKEN_TIME: time.time(),
         })
         return True
 
@@ -185,6 +222,8 @@ class MitsubishiOwnerPortalAccount:
         uid = self._config.get(CONF_USER_ID)
         if uid is None:
             await self.async_login()
+        if time.time() - self.token_time > 3000:
+            await self.async_refresh_token()
         api = f'user/v1/users/{self._config.get(CONF_USER_ID)}/vehicles'
         rsp = await self.request(api)
         msg = rsp.get('message', '')
@@ -279,7 +318,8 @@ class Vehicle:
         dat = {
             'battery': {
                 'icon': 'mdi:battery',
-                'unit': PERCENTAGE
+                'unit': PERCENTAGE,
+                'device_class': SensorDeviceClass.BATTERY,
             },
             'charging_status': {
                 'icon': 'mdi:battery-charging',
@@ -299,7 +339,6 @@ class Vehicle:
         # if not await self.async_remote_operation():
         #     return {}
         api = f'avi/v1/vehicles/{self.vin}/vehiclestate'
-        rsp = None
         try:
             rsp = await self.account.request(api)
         except (TypeError, ValueError) as exc:
@@ -408,4 +447,3 @@ class MitsubishiOwnerPortalEntity(CoordinatorEntity):
                 f'{DOMAIN}-request',
             )
         return rdt
-
