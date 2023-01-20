@@ -1,6 +1,7 @@
 {
   "domain": "mitsubishi_owner_portal",
   "name": "Mitsubishi Owner Portal",
+  "config_flow": true,
   "version": "0.0.1",
   "requirements": [],
   "codeowners": [],

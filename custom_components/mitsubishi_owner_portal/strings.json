@@ -1,0 +1,16 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add Mitsubishi Owner Portal account",
+        "data": {
+          "username": "Username (Email)",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "auth_error": "Login failed"
+    }
+  }
+}
