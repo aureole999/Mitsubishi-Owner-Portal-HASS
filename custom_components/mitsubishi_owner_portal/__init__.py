@@ -4,7 +4,7 @@ import datetime
 import time
 
 import voluptuous as vol
-from homeassistant.components.sensor import SensorDeviceClass
+from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 
 from homeassistant.core import HomeAssistant
 from homeassistant.const import *
@@ -321,6 +321,7 @@ class Vehicle:
                 'icon': 'mdi:battery',
                 'unit': PERCENTAGE,
                 'class': SensorDeviceClass.BATTERY,
+                'state_class': SensorStateClass.MEASUREMENT,
             },
             'charging_status': {
                 'icon': 'mdi:battery-charging',
@@ -402,6 +403,7 @@ class MitsubishiOwnerPortalEntity(CoordinatorEntity):
         self.entity_id = f'{DOMAIN}.{self._attr_device_id}_{name}'
         self._attr_icon = self._option.get('icon')
         self._attr_device_class = self._option.get('class')
+        self._attr_state_class = self._option.get('state_class')
         self._attr_unit_of_measurement = self._option.get('unit')
         self._attr_device_info = {
             'identifiers': {(DOMAIN, self._attr_device_id)},
