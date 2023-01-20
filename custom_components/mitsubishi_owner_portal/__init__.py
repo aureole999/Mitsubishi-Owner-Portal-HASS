@@ -320,7 +320,7 @@ class Vehicle:
             'battery': {
                 'icon': 'mdi:battery',
                 'unit': PERCENTAGE,
-                'device_class': SensorDeviceClass.BATTERY,
+                'class': SensorDeviceClass.BATTERY,
             },
             'charging_status': {
                 'icon': 'mdi:battery-charging',
