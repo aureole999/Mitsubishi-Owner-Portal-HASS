@@ -215,6 +215,7 @@ class MitsubishiOwnerPortalAccount:
         self._config.update({
             CONF_TOKEN: access_token,
             CONF_TOKEN_TIME: time.time(),
+            CONF_REFRESH_TOKEN: rsp.get('refresh_token'),
         })
         return True
 
