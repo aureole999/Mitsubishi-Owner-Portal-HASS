@@ -265,6 +265,7 @@ class VehiclesCoordinator(DataUpdateCoordinator):
     async def update_vehicle_detail(self):
         # if not await self.async_remote_operation():
         #     return {}
+        await self.account.async_check_token()
         api = f'avi/v1/vehicles/{self.vin}/vehiclestate'
         try:
             rsp = await self.account.request(api)
