@@ -207,9 +207,15 @@ class MitsubishiOwnerPortalAccount:
         })
         return True
 
+    async def async_check_token(self):
+        if None in [self.uid, self.token, self.token_time, self.refresh_token, self.refresh_token_time]:
+            await self.async_login()
+        elif time.time() - self.refresh_token_time > 2590000:
+            await self.async_login()
+        elif time.time() - self.token_time > 3000:
+            await self.async_refresh_token()
+
     async def async_refresh_token(self):
-        if time.time() - self.refresh_token_time > 2590000:
-            return await self.async_login()
         pms = {
             'grant_type': 'refresh_token',
             'refresh_token': self.refresh_token,
@@ -227,18 +233,13 @@ class MitsubishiOwnerPortalAccount:
         return True
 
     async def async_get_vehicles(self):
-        uid = self._config.get(CONF_USER_ID)
-        access_token = self._config.get(CONF_TOKEN)
-        if uid is None or access_token is None:
-            await self.async_login()
-        if self.token_time is not None and time.time() - self.token_time > 3000:
-            await self.async_refresh_token()
-        api = f'user/v1/users/{uid}/vehicles'
+        await self.async_check_token()
+        api = f'user/v1/users/{self.uid}/vehicles'
         rsp = await self.request(api)
         msg = rsp.get('message', '')
         if msg == 'Unauthorized':
             if await self.async_login():
-                api = f'user/v1/users/{uid}/vehicles'
+                api = f'user/v1/users/{self.uid}/vehicles'
                 rsp = await self.request(api)
         vhs = rsp.get('vehicles', [])
         if not vhs:
@@ -270,6 +271,14 @@ class VehiclesCoordinator(DataUpdateCoordinator):
         except (TypeError, ValueError) as exc:
             rsp = {}
             _LOGGER.error('Got vehicle detail for %s failed: %s', self.vin, exc)
+
+        if not rsp.get('state', {}):
+            _LOGGER.warning('Got vehicle detail for %s failed: %s', self.vin, rsp)
+            if await self.account.async_login():
+                try:
+                    rsp = await self.account.request(api)
+                except (TypeError, ValueError):
+                    rsp = {}
 
         ts = rsp.get('state', {}).get('chargingControl', {}).get('eventTimestamp', 'unknown')
         if ts.isnumeric():
