@@ -212,7 +212,7 @@ class MitsubishiOwnerPortalAccount:
             await self.async_login()
         elif time.time() - self.refresh_token_time > 2590000:
             await self.async_login()
-        elif time.time() - self.token_time > 3000:
+        elif time.time() - self.token_time > 1500:
             await self.async_refresh_token()
 
     async def async_refresh_token(self):
