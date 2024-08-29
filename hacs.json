@@ -1,0 +1,7 @@
+{
+  "name": "Mitsubishi Owner Portal HASS",
+  "render_readme": true,
+  "domains": ["sensor"],
+  "homeassistant": "2024.1.0",
+  "iot_class": ["Local Push", "Local Polling"]
+}
