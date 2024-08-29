@@ -144,7 +144,7 @@ class MitsubishiOwnerPortalAccount:
 
     @property
     def refresh_token_time(self):
-        return self.get_config(CONF_REFRESH_TOKEN_TIME) or ''
+        return self.get_config(CONF_REFRESH_TOKEN_TIME) or 0
 
     @property
     def update_interval(self):
