@@ -686,7 +686,8 @@ class MitsubishiOwnerPortalEntity(CoordinatorEntity[VehiclesCoordinator]):
         """Initialize the entity."""
         super().__init__(coordinator)
         self.vehicle = vehicle
-        self._attr_name = vehicle.vehicle_model_name
+        # Don't set _attr_name in base class - let entity types handle their own naming
+        # Device name is set via device_info property
         self._attr_unique_id = vehicle.vin
 
     @property

@@ -193,16 +193,14 @@ class MitsubishiOwnerPortalSensorEntity(MitsubishiOwnerPortalEntity, SensorEntit
             coordinator: VehiclesCoordinator,
             description: SensorEntityDescription,
     ) -> None:
-        """Initialize the switch."""
+        """Initialize the sensor."""
         super().__init__(vehicle, coordinator)
         self.entity_description = description
         self._attr_unique_id = (
             f"{vehicle.vin}_{self.entity_description.key}"
         )
-        # Use new naming convention: entity name without device prefix
+        # Use new naming convention: entity name from translation_key
         self._attr_has_entity_name = True
-        # Clear name set by base class - let HA use translation_key
-        self._attr_name = None
 
     @property
     def native_value(self):
