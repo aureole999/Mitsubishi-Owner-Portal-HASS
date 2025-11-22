@@ -21,156 +21,156 @@ VEHICLE_SENSORS: tuple[SensorEntityDescription, ...] = (
     # Battery and Charging
     SensorEntityDescription(
         key="Battery",
+        translation_key="current_battery_level",
         native_unit_of_measurement=PERCENTAGE,
         device_class=SensorDeviceClass.BATTERY,
         state_class=SensorStateClass.MEASUREMENT,
-        name="Current Battery Level",
     ),
     SensorEntityDescription(
         key="Charging_Status",
+        translation_key="charging_status",
         device_class=SensorDeviceClass.ENUM,
-        name="Charging Status",
     ),
     SensorEntityDescription(
         key="Charging_Plug_Status",
+        translation_key="charging_plug_status",
         device_class=SensorDeviceClass.ENUM,
-        name="Charging Plug Status",
     ),
     SensorEntityDescription(
         key="Charging_Mode",
+        translation_key="charging_mode",
         device_class=SensorDeviceClass.ENUM,
-        name="Charging Mode",
     ),
     SensorEntityDescription(
         key="Charging_Ready",
+        translation_key="charging_ready",
         device_class=SensorDeviceClass.ENUM,
-        name="Charging Ready",
     ),
     SensorEntityDescription(
         key="Time_To_Full_Charge",
+        translation_key="time_to_full_charge",
         device_class=SensorDeviceClass.DURATION,
         native_unit_of_measurement=UnitOfTime.MINUTES,
-        name="Time To Full Charge",
     ),
     SensorEntityDescription(
         key="Event_Timestamp",
+        translation_key="last_update_time",
         device_class=SensorDeviceClass.TIMESTAMP,
-        name="Last Update Time",
     ),
 
     # Range Information
     SensorEntityDescription(
         key="Cruising_Range_Combined",
+        translation_key="total_cruising_range",
         native_unit_of_measurement=UnitOfLength.KILOMETERS,
         device_class=SensorDeviceClass.DISTANCE,
         state_class=SensorStateClass.MEASUREMENT,
-        name="Total Cruising Range",
         icon="mdi:road-variant",
     ),
     SensorEntityDescription(
         key="Cruising_Range_Gasoline",
+        translation_key="gasoline_range",
         native_unit_of_measurement=UnitOfLength.KILOMETERS,
         device_class=SensorDeviceClass.DISTANCE,
         state_class=SensorStateClass.MEASUREMENT,
-        name="Gasoline Range",
         icon="mdi:gas-station",
     ),
     SensorEntityDescription(
         key="Cruising_Range_Electric",
+        translation_key="electric_range",
         native_unit_of_measurement=UnitOfLength.KILOMETERS,
         device_class=SensorDeviceClass.DISTANCE,
         state_class=SensorStateClass.MEASUREMENT,
-        name="Electric Range",
         icon="mdi:ev-station",
     ),
 
     # Vehicle State
     SensorEntityDescription(
         key="Ignition_State",
+        translation_key="ignition_state",
         device_class=SensorDeviceClass.ENUM,
-        name="Ignition State",
         icon="mdi:key",
     ),
     SensorEntityDescription(
         key="Ignition_State_Timestamp",
+        translation_key="ignition_state_time",
         device_class=SensorDeviceClass.TIMESTAMP,
-        name="Ignition State Time",
     ),
     SensorEntityDescription(
         key="Odometer",
+        translation_key="odometer",
         native_unit_of_measurement=UnitOfLength.KILOMETERS,
         device_class=SensorDeviceClass.DISTANCE,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        name="Odometer",
         icon="mdi:counter",
     ),
     SensorEntityDescription(
         key="Odometer_Timestamp",
+        translation_key="odometer_update_time",
         device_class=SensorDeviceClass.TIMESTAMP,
-        name="Odometer Update Time",
     ),
 
     # Location Information
     SensorEntityDescription(
         key="Location_Latitude",
-        name="Location Latitude",
+        translation_key="location_latitude",
         icon="mdi:map-marker",
     ),
     SensorEntityDescription(
         key="Location_Longitude",
-        name="Location Longitude",
+        translation_key="location_longitude",
         icon="mdi:map-marker",
     ),
     SensorEntityDescription(
         key="Location_Timestamp",
+        translation_key="location_update_time",
         device_class=SensorDeviceClass.TIMESTAMP,
-        name="Location Update Time",
     ),
 
     # Security and Status
     SensorEntityDescription(
         key="Theft_Alarm",
+        translation_key="theft_alarm",
         device_class=SensorDeviceClass.ENUM,
-        name="Theft Alarm",
         icon="mdi:shield-car",
     ),
     SensorEntityDescription(
         key="Theft_Alarm_Type",
+        translation_key="theft_alarm_type",
         device_class=SensorDeviceClass.ENUM,
-        name="Theft Alarm Type",
         icon="mdi:shield-alert",
     ),
     SensorEntityDescription(
         key="Privacy_Mode",
+        translation_key="privacy_mode",
         device_class=SensorDeviceClass.ENUM,
-        name="Privacy Mode",
         icon="mdi:incognito",
     ),
     SensorEntityDescription(
         key="Temperature",
+        translation_key="vehicle_temperature",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
-        name="Vehicle Temperature",
     ),
     SensorEntityDescription(
         key="Accessible",
+        translation_key="vehicle_accessible",
         device_class=SensorDeviceClass.ENUM,
-        name="Vehicle Accessible",
         icon="mdi:car-connected",
     ),
 
     # Other States
     SensorEntityDescription(
         key="Door_Status",
+        translation_key="door_status",
         device_class=SensorDeviceClass.ENUM,
-        name="Door Status",
         icon="mdi:car-door",
     ),
     SensorEntityDescription(
         key="Diagnostic",
+        translation_key="diagnostic_status",
         device_class=SensorDeviceClass.ENUM,
-        name="Diagnostic Status",
         icon="mdi:car-cog",
     ),
 )
@@ -202,11 +202,11 @@ class MitsubishiOwnerPortalSensorEntity(MitsubishiOwnerPortalEntity, SensorEntit
 
     @property
     def name(self) -> str:
-        """Return the name of the Smart Plug.
+        """Return the name of the sensor.
 
-        Overridden to include the description.
+        The name will be automatically translated by Home Assistant.
         """
-        return f"{self.vehicle.vehicle_model} {self.entity_description.name}"
+        return None
 
     @property
     def native_value(self):

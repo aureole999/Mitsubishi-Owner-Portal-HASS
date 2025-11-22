@@ -22,5 +22,81 @@
       "title": "SSL Certificate Error",
       "description": "Failed to connect to Mitsubishi Owner Portal due to an SSL certificate error.\n\n**URL:** {url}\n\n**Error:** {error}\n\n**Possible causes:**\n1. The server's SSL certificate has expired\n2. Your system's CA certificates need updating\n3. Network connectivity issues\n\n**Solutions:**\n- Wait for Mitsubishi to fix the certificate (if it's expired on their end)\n- Update your system's CA certificates\n- Check your network connection and firewall settings\n- Contact Mitsubishi technical support if the issue persists"
     }
+  },
+  "entity": {
+    "sensor": {
+      "current_battery_level": {
+        "name": "Current Battery Level"
+      },
+      "charging_status": {
+        "name": "Charging Status"
+      },
+      "charging_plug_status": {
+        "name": "Charging Plug Status"
+      },
+      "charging_mode": {
+        "name": "Charging Mode"
+      },
+      "charging_ready": {
+        "name": "Charging Ready"
+      },
+      "time_to_full_charge": {
+        "name": "Time To Full Charge"
+      },
+      "last_update_time": {
+        "name": "Last Update Time"
+      },
+      "total_cruising_range": {
+        "name": "Total Cruising Range"
+      },
+      "gasoline_range": {
+        "name": "Gasoline Range"
+      },
+      "electric_range": {
+        "name": "Electric Range"
+      },
+      "ignition_state": {
+        "name": "Ignition State"
+      },
+      "ignition_state_time": {
+        "name": "Ignition State Time"
+      },
+      "odometer": {
+        "name": "Odometer"
+      },
+      "odometer_update_time": {
+        "name": "Odometer Update Time"
+      },
+      "location_latitude": {
+        "name": "Location Latitude"
+      },
+      "location_longitude": {
+        "name": "Location Longitude"
+      },
+      "location_update_time": {
+        "name": "Location Update Time"
+      },
+      "theft_alarm": {
+        "name": "Theft Alarm"
+      },
+      "theft_alarm_type": {
+        "name": "Theft Alarm Type"
+      },
+      "privacy_mode": {
+        "name": "Privacy Mode"
+      },
+      "vehicle_temperature": {
+        "name": "Vehicle Temperature"
+      },
+      "vehicle_accessible": {
+        "name": "Vehicle Accessible"
+      },
+      "door_status": {
+        "name": "Door Status"
+      },
+      "diagnostic_status": {
+        "name": "Diagnostic Status"
+      }
+    }
   }
 }
