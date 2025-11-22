@@ -201,6 +201,8 @@ class MitsubishiOwnerPortalSensorEntity(MitsubishiOwnerPortalEntity, SensorEntit
         )
         # Use new naming convention: entity name without device prefix
         self._attr_has_entity_name = True
+        # Clear name set by base class - let HA use translation_key
+        self._attr_name = None
 
     @property
     def native_value(self):
