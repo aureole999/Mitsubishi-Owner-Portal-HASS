@@ -442,65 +442,81 @@ class VehiclesCoordinator(DataUpdateCoordinator):
         state = rsp.get('state', {})
         charging_control = state.get('chargingControl', {})
 
-        # Helper function to convert timestamp
-        def format_timestamp(ts_value):
+        # Helper function to convert timestamp to datetime object
+        def parse_timestamp(ts_value):
+            """Convert timestamp to datetime object for TIMESTAMP sensors."""
             if ts_value and str(ts_value).isnumeric():
                 timestamp = float(ts_value)
                 # Check if timestamp is in milliseconds (13 digits) and convert to seconds
                 if timestamp > 10000000000:  # Timestamps after year 2286 are likely in milliseconds
                     timestamp = timestamp / 1000
-                return datetime.datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S")
-            return ts_value or 'unknown'
+                return datetime.datetime.fromtimestamp(timestamp)
+            return None
+
+        # Helper function to safely convert numeric values
+        def safe_number(value, default=None):
+            """Convert value to number, return None if invalid."""
+            if value is None or value == 'unknown' or value == '':
+                return default
+            try:
+                # Try to convert to int first, then float
+                return int(value) if isinstance(value, str) and value.isdigit() else float(value) if value else default
+            except (ValueError, TypeError):
+                return default
 
         # Extract location data
         ext_loc_map = state.get('extLocMap', {})
-        location_lat = ext_loc_map.get('lat', 'unknown')
-        location_lon = ext_loc_map.get('lon', 'unknown')
-        location_ts = format_timestamp(ext_loc_map.get('ts'))
+        location_lat = safe_number(ext_loc_map.get('lat'))
+        location_lon = safe_number(ext_loc_map.get('lon'))
+        location_ts = parse_timestamp(ext_loc_map.get('ts'))
 
         # Extract odometer data (get the most recent reading)
         odo_list = state.get('odo', [])
-        latest_odo = 'unknown'
-        latest_odo_ts = 'unknown'
+        latest_odo = None
+        latest_odo_ts = None
         if odo_list and isinstance(odo_list, list):
             latest_odo_entry = odo_list[-1] if odo_list else {}
             if isinstance(latest_odo_entry, dict) and latest_odo_entry:
                 # Get the first (and only) key-value pair
                 for ts_key, odo_value in latest_odo_entry.items():
-                    latest_odo = odo_value
-                    latest_odo_ts = ts_key
+                    latest_odo = safe_number(odo_value)
+                    # Odometer timestamp is a string date, parse it
+                    try:
+                        latest_odo_ts = datetime.datetime.strptime(ts_key, "%Y-%m-%d %H:%M:%S")
+                    except (ValueError, TypeError):
+                        latest_odo_ts = None
                     break
 
         # Extract cruising range data
-        cruising_range_combined = charging_control.get('cruisingRangeCombined', 'unknown')
+        cruising_range_combined = safe_number(charging_control.get('cruisingRangeCombined'))
 
         # Extract first cruising range (gasoline)
         cruising_range_first_list = charging_control.get('cruisingRangeFirst', [])
-        cruising_range_gasoline = 'unknown'
+        cruising_range_gasoline = None
         if cruising_range_first_list and isinstance(cruising_range_first_list, list):
             for item in cruising_range_first_list:
                 if isinstance(item, dict) and item.get('engineType') == '4':
-                    cruising_range_gasoline = item.get('range', 'unknown')
+                    cruising_range_gasoline = safe_number(item.get('range'))
                     break
 
         # Extract second cruising range (electric)
         cruising_range_second_list = charging_control.get('cruisingRangeSecond', [])
-        cruising_range_electric = 'unknown'
+        cruising_range_electric = None
         if cruising_range_second_list and isinstance(cruising_range_second_list, list):
             for item in cruising_range_second_list:
                 if isinstance(item, dict) and item.get('engineType') == '5':
-                    cruising_range_electric = item.get('range', 'unknown')
+                    cruising_range_electric = safe_number(item.get('range'))
                     break
 
         return {
             # Charging information
-            "Battery": charging_control.get('hvBatteryLife', 'unknown'),
-            "Charging_Status": charging_control.get('hvChargingStatus', 'unknown'),
-            "Charging_Mode": charging_control.get('hvChargingMode', 'unknown'),
-            "Charging_Plug_Status": charging_control.get('hvChargingPlugStatus', 'unknown'),
-            "Charging_Ready": charging_control.get('hvChargingReady', 'unknown'),
-            "Time_To_Full_Charge": charging_control.get('hvTimeToFullCharge', 'unknown'),
-            "Event_Timestamp": format_timestamp(charging_control.get('eventTimestamp')),
+            "Battery": safe_number(charging_control.get('hvBatteryLife')),
+            "Charging_Status": charging_control.get('hvChargingStatus') or 'unknown',
+            "Charging_Mode": charging_control.get('hvChargingMode') or 'unknown',
+            "Charging_Plug_Status": charging_control.get('hvChargingPlugStatus') or 'unknown',
+            "Charging_Ready": charging_control.get('hvChargingReady') or 'unknown',
+            "Time_To_Full_Charge": safe_number(charging_control.get('hvTimeToFullCharge')),
+            "Event_Timestamp": parse_timestamp(charging_control.get('eventTimestamp')),
 
             # Range information
             "Cruising_Range_Combined": cruising_range_combined,
@@ -508,8 +524,8 @@ class VehiclesCoordinator(DataUpdateCoordinator):
             "Cruising_Range_Electric": cruising_range_electric,
 
             # Vehicle state
-            "Ignition_State": state.get('ignitionState', 'unknown'),
-            "Ignition_State_Timestamp": format_timestamp(state.get('ignitionStateTs')),
+            "Ignition_State": state.get('ignitionState') or 'unknown',
+            "Ignition_State_Timestamp": parse_timestamp(state.get('ignitionStateTs')),
             "Odometer": latest_odo,
             "Odometer_Timestamp": latest_odo_ts,
 
@@ -519,15 +535,15 @@ class VehiclesCoordinator(DataUpdateCoordinator):
             "Location_Timestamp": location_ts,
 
             # Security and status
-            "Theft_Alarm": state.get('theftAlarm', 'unknown'),
-            "Theft_Alarm_Type": state.get('theftAlarmType', 'unknown'),
-            "Privacy_Mode": state.get('privacy', 'unknown'),
-            "Temperature": state.get('temp', 'unknown'),
-            "Accessible": state.get('accessible', 'unknown'),
+            "Theft_Alarm": state.get('theftAlarm') or 'unknown',
+            "Theft_Alarm_Type": state.get('theftAlarmType') or 'unknown',
+            "Privacy_Mode": state.get('privacy') or 'unknown',
+            "Temperature": safe_number(state.get('temp')),
+            "Accessible": state.get('accessible') or 'unknown',
 
             # Other states
-            "Door_Status": state.get('ods', 'unknown'),
-            "Diagnostic": state.get('diagnostic', 'unknown'),
+            "Door_Status": state.get('ods') or 'unknown',
+            "Diagnostic": state.get('diagnostic') or 'unknown',
         }
 
     async def async_remote_operation(self):
