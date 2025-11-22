@@ -670,9 +670,15 @@ class MitsubishiOwnerPortalEntity(CoordinatorEntity[VehiclesCoordinator]):
     @property
     def device_info(self) -> DeviceInfo:
         """Return information about the device."""
+        # Generate unique device name by including last 4 digits of VIN
+        # This helps distinguish multiple vehicles of the same model
+        vin = str(self.vehicle.vin or "")
+        vin_suffix = vin[-4:] if len(vin) >= 4 else vin
+        device_name = f"{self.vehicle.vehicle_model_name} ({vin_suffix})" if vin_suffix else self.vehicle.vehicle_model_name
+
         return DeviceInfo(
             identifiers={(DOMAIN, str(self.vehicle.vin))},
             manufacturer="Mitsubishi",
             model=self.vehicle.vehicle_model,
-            name=self.vehicle.vehicle_model_name,
+            name=device_name,
         )
