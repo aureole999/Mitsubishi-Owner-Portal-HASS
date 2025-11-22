@@ -448,13 +448,14 @@ class VehiclesCoordinator(DataUpdateCoordinator):
 
         # Helper function to convert timestamp to datetime object
         def parse_timestamp(ts_value):
-            """Convert timestamp to datetime object for TIMESTAMP sensors."""
+            """Convert timestamp to datetime object with timezone for TIMESTAMP sensors."""
             if ts_value and str(ts_value).isnumeric():
                 timestamp = float(ts_value)
                 # Check if timestamp is in milliseconds (13 digits) and convert to seconds
                 if timestamp > 10000000000:  # Timestamps after year 2286 are likely in milliseconds
                     timestamp = timestamp / 1000
-                return datetime.datetime.fromtimestamp(timestamp)
+                # Return timezone-aware datetime in UTC
+                return datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc)
             return None
 
         # Helper function to safely convert numeric values
