@@ -9,7 +9,7 @@ Home Assistant custom integration for Mitsubishi Owner Portal (Japan).
 
 This integration allows you to monitor your Mitsubishi electric vehicle through the official Mitsubishi Owner Portal API.
 
-[简体中文文档](README_CN.md)
+[日本語ドキュメント](README_JP.md) | [简体中文文档](README_CN.md)
 
 ## Features
 
