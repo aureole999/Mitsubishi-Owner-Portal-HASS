@@ -199,8 +199,8 @@ class MitsubishiOwnerPortalSensorEntity(MitsubishiOwnerPortalEntity, SensorEntit
         self._attr_unique_id = (
             f"{vehicle.vin}_{self.entity_description.key}"
         )
-        # Don't set _attr_name - let Home Assistant use translation_key
-        self._attr_name = None
+        # Use new naming convention: entity name without device prefix
+        self._attr_has_entity_name = True
 
     @property
     def native_value(self):
