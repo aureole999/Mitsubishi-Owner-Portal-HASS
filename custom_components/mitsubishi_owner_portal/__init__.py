@@ -447,6 +447,10 @@ class VehiclesCoordinator(DataUpdateCoordinator):
         state = rsp.get('state', {})
         charging_control = state.get('chargingControl', {})
 
+        # Debug: log available keys in charging_control
+        if charging_control:
+            _LOGGER.debug('charging_control keys: %s', list(charging_control.keys()))
+
         # Helper function to convert timestamp to datetime object
         def parse_timestamp(ts_value):
             """Convert timestamp to datetime object with timezone for TIMESTAMP sensors."""
@@ -545,6 +549,13 @@ class VehiclesCoordinator(DataUpdateCoordinator):
                         cruising_range_electric = safe_number(range_data.get('value'))
                         if cruising_range_electric:
                             break
+
+        # Debug logging for range values
+        _LOGGER.debug('Cruising range values: combined=%s, gasoline=%s, electric=%s',
+                     cruising_range_combined, cruising_range_gasoline, cruising_range_electric)
+        if cruising_range_electric is None:
+            _LOGGER.warning('Electric range is None. cruisingRangeSecond structure: %s',
+                          charging_control.get('cruisingRangeSecond'))
 
         # Calculate gasoline range from combined if available and gasoline range seems unrealistic
         # (PHEV gasoline range shouldn't exceed combined range significantly)
