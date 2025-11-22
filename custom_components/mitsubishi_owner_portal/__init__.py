@@ -444,21 +444,24 @@ class VehiclesCoordinator(DataUpdateCoordinator):
                 except (TypeError, ValueError):
                     rsp = {}
 
-        # Support both response structures
-        state = rsp.get('state', {})
-        charging_control = state.get('chargingControl', {})
-
-        # Check for vhr structure (actual API response)
+        # Parse actual API response structure: vhr[0].dt.diagnostic
         vhr = rsp.get('vhr', [])
-        if vhr and isinstance(vhr, list) and len(vhr) > 0:
-            diagnostic = vhr[0].get('dt', {}).get('diagnostic', {})
-            if diagnostic:
-                _LOGGER.debug('Using vhr[0].dt.diagnostic structure')
-                charging_control = diagnostic
+        if not vhr or not isinstance(vhr, list) or len(vhr) == 0:
+            _LOGGER.error('Invalid API response: missing vhr array. Response keys: %s', list(rsp.keys()) if isinstance(rsp, dict) else type(rsp))
+            return {}
 
-        # Debug: log available keys in charging_control
-        if charging_control:
-            _LOGGER.debug('charging_control keys: %s', list(charging_control.keys()))
+        diagnostic = vhr[0].get('dt', {}).get('diagnostic', {})
+        vehicle_status = vhr[0].get('dt', {}).get('vehicleStatus', {})
+
+        if not diagnostic:
+            _LOGGER.error('Invalid API response: missing diagnostic data in vhr[0].dt')
+            return {}
+
+        _LOGGER.debug('Diagnostic keys: %s', list(diagnostic.keys()))
+
+        # Use diagnostic as the main data source (replaces old 'charging_control')
+        charging_control = diagnostic
+        state = {'vehicleStatus': vehicle_status}  # For any legacy field access
 
         # Helper function to convert timestamp to datetime object
         def parse_timestamp(ts_value):
@@ -484,12 +487,10 @@ class VehiclesCoordinator(DataUpdateCoordinator):
                 return default
 
         # Helper function to get value from diagnostic structure
-        def get_diagnostic_value(field_name, fallback_name=None):
-            """Get value from diagnostic structure, supporting both field formats."""
-            val = charging_control.get(field_name)
-            if val is None and fallback_name:
-                val = charging_control.get(fallback_name)
-            # Handle nested structure with 'value' key
+        def get_diagnostic_value(field_name):
+            """Get value from diagnostic structure with nested 'value' key."""
+            val = diagnostic.get(field_name)
+            # Handle nested structure with 'value' key (e.g., {"value": "69"})
             if isinstance(val, dict) and 'value' in val:
                 return val.get('value')
             return val
@@ -597,12 +598,12 @@ class VehiclesCoordinator(DataUpdateCoordinator):
 
         return {
             # Charging information
-            "Battery": safe_number(get_diagnostic_value('batteryLife', 'hvBatteryLife')),
-            "Charging_Status": get_diagnostic_value('chargingStatus', 'hvChargingStatus') or 'unknown',
-            "Charging_Mode": get_diagnostic_value('chargingMode', 'hvChargingMode') or 'unknown',
-            "Charging_Plug_Status": get_diagnostic_value('chargePlugConnected', 'hvChargingPlugStatus') or 'unknown',
-            "Charging_Ready": get_diagnostic_value('chargingReady', 'hvChargingReady') or 'unknown',
-            "Time_To_Full_Charge": safe_number(get_diagnostic_value('timeToFullCharge', 'hvTimeToFullCharge')),
+            "Battery": safe_number(get_diagnostic_value('batteryLife')),
+            "Charging_Status": get_diagnostic_value('chargingStatus') or 'unknown',
+            "Charging_Mode": get_diagnostic_value('chargingMode') or 'unknown',
+            "Charging_Plug_Status": get_diagnostic_value('chargePlugConnected') or 'unknown',
+            "Charging_Ready": get_diagnostic_value('chargingReady') or 'unknown',
+            "Time_To_Full_Charge": safe_number(get_diagnostic_value('timeToFullCharge')),
             "Event_Timestamp": parse_timestamp(get_diagnostic_value('eventTimestamp')),
 
             # Range information
@@ -611,8 +612,8 @@ class VehiclesCoordinator(DataUpdateCoordinator):
             "Cruising_Range_Electric": cruising_range_electric,
 
             # Vehicle state
-            "Ignition_State": get_diagnostic_value('igst', 'ignitionState') or state.get('ignitionState') or 'unknown',
-            "Ignition_State_Timestamp": parse_timestamp(get_diagnostic_value('digsts')) or parse_timestamp(state.get('ignitionStateTs')),
+            "Ignition_State": get_diagnostic_value('igst') or 'unknown',
+            "Ignition_State_Timestamp": parse_timestamp(get_diagnostic_value('digsts')),
             "Odometer": latest_odo,
             "Odometer_Timestamp": latest_odo_ts,
 
