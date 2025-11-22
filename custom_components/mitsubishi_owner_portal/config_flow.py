@@ -122,6 +122,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                         self.config_entry,
                         data={"account": acc, "vehicles": vhs}
                     )
+                    # Reload the integration to apply new settings
+                    await self.hass.config_entries.async_reload(self.config_entry.entry_id)
                     return self.async_create_entry(title="", data={})
                 else:
                     errors["base"] = "auth_error"
@@ -133,6 +135,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                     self.config_entry,
                     data={"account": current_account, "vehicles": self.config_entry.data.get("vehicles")}
                 )
+                # Reload the integration to apply new SSL settings
+                await self.hass.config_entries.async_reload(self.config_entry.entry_id)
                 return self.async_create_entry(title="", data={})
 
         current_account = self.config_entry.data.get("account", {})
