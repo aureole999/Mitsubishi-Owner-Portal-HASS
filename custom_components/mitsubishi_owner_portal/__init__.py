@@ -523,10 +523,19 @@ class VehiclesCoordinator(DataUpdateCoordinator):
         cruising_range_first_list = charging_control.get('cruisingRangeFirst', [])
         cruising_range_gasoline = None
         if cruising_range_first_list and isinstance(cruising_range_first_list, list):
+            # API returns array with separate dicts: [{"range": "1991"}, {"engineType": "4"}]
+            # Extract range from first dict that has it, verify engineType if present
+            range_value = None
+            engine_type = None
             for item in cruising_range_first_list:
-                if isinstance(item, dict) and item.get('engineType') == '4':
-                    cruising_range_gasoline = safe_number(item.get('range'))
-                    break
+                if isinstance(item, dict):
+                    if 'range' in item:
+                        range_value = item.get('range')
+                    if 'engineType' in item:
+                        engine_type = item.get('engineType')
+            # Use range if found and engineType is correct (or not specified)
+            if range_value and (engine_type == '4' or engine_type is None):
+                cruising_range_gasoline = safe_number(range_value)
 
         # Try alternative structure for gasoline range
         if cruising_range_gasoline is None and isinstance(charging_control.get('cruisingRangeFirst'), dict):
@@ -544,10 +553,19 @@ class VehiclesCoordinator(DataUpdateCoordinator):
         cruising_range_second_list = charging_control.get('cruisingRangeSecond', [])
         cruising_range_electric = None
         if cruising_range_second_list and isinstance(cruising_range_second_list, list):
+            # API returns array with separate dicts: [{"range": "46"}, {"engineType": "5"}]
+            # Extract range from first dict that has it, verify engineType if present
+            range_value = None
+            engine_type = None
             for item in cruising_range_second_list:
-                if isinstance(item, dict) and item.get('engineType') == '5':
-                    cruising_range_electric = safe_number(item.get('range'))
-                    break
+                if isinstance(item, dict):
+                    if 'range' in item:
+                        range_value = item.get('range')
+                    if 'engineType' in item:
+                        engine_type = item.get('engineType')
+            # Use range if found and engineType is correct (or not specified)
+            if range_value and (engine_type == '5' or engine_type is None):
+                cruising_range_electric = safe_number(range_value)
 
         # Try alternative structure for electric range
         if cruising_range_electric is None and isinstance(charging_control.get('cruisingRangeSecond'), dict):
