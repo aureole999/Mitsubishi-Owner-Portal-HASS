@@ -216,8 +216,12 @@ class MitsubishiOwnerPortalAccount:
         else:
             kws['json'] = pms
         req = None
+
+        _LOGGER.debug('Making %s request to %s (verify_ssl=%s)', method, url, self.get_config(CONF_VERIFY_SSL, True))
+
         try:
             req = await self.http.request(method, url, **kws)
+            _LOGGER.debug('Request to %s succeeded (status=%s)', url, req.status)
             return await req.json(content_type=None) or {}
         except ClientSSLError as exc:
             # SSL Certificate error - create repair issue
