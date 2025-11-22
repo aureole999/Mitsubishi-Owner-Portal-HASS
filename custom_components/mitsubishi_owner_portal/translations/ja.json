@@ -1,0 +1,137 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "三菱オーナーポータルアカウントを追加",
+        "description": "三菱オーナーポータルの認証情報を入力してください",
+        "data": {
+          "username": "メールアドレス",
+          "password": "パスワード",
+          "verify_ssl": "SSL証明書を検証"
+        },
+        "data_description": {
+          "verify_ssl": "SSL証明書の検証を有効にする（推奨）"
+        }
+      },
+      "reconfigure": {
+        "title": "三菱オーナーポータルを再設定",
+        "description": "{username}のアカウント認証情報を更新",
+        "data": {
+          "username": "メールアドレス",
+          "password": "パスワード",
+          "verify_ssl": "SSL証明書を検証"
+        },
+        "data_description": {
+          "verify_ssl": "SSL証明書の検証を有効にする（推奨）"
+        }
+      }
+    },
+    "error": {
+      "auth_error": "認証に失敗しました。認証情報を確認してもう一度お試しください。"
+    },
+    "abort": {
+      "already_configured": "このアカウントは既に設定されています。"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "三菱オーナーポータルを設定",
+        "description": "{username}の設定を更新します。パスワードを変更しない場合は空欄のままにしてください。",
+        "data": {
+          "password": "新しいパスワード（オプション）",
+          "verify_ssl": "SSL証明書を検証"
+        },
+        "data_description": {
+          "password": "パスワードを変更する場合のみ入力してください",
+          "verify_ssl": "SSL証明書の検証を有効にする（推奨）"
+        }
+      }
+    },
+    "error": {
+      "auth_error": "認証に失敗しました。認証情報を確認してもう一度お試しください。"
+    }
+  },
+  "issues": {
+    "ssl_certificate_error": {
+      "title": "SSL証明書エラー",
+      "description": "SSL証明書エラーのため、三菱オーナーポータルに接続できませんでした。\n\n**URL:** {url}\n\n**エラー:** {error}\n\n**考えられる原因:**\n1. サーバーのSSL証明書が期限切れ\n2. システムのCA証明書の更新が必要\n3. ネットワーク接続の問題\n\n**解決方法:**\n- 三菱が証明書を修正するまで待つ（証明書が期限切れの場合）\n- システムのCA証明書を更新する\n- ネットワーク接続とファイアウォール設定を確認する\n- 問題が解決しない場合は三菱のテクニカルサポートに連絡する"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "current_battery_level": {
+        "name": "現在のバッテリー残量"
+      },
+      "charging_status": {
+        "name": "充電状態"
+      },
+      "charging_plug_status": {
+        "name": "充電プラグ状態"
+      },
+      "charging_mode": {
+        "name": "充電モード"
+      },
+      "charging_ready": {
+        "name": "充電準備完了"
+      },
+      "time_to_full_charge": {
+        "name": "フル充電までの時間"
+      },
+      "last_update_time": {
+        "name": "最終更新時刻"
+      },
+      "total_cruising_range": {
+        "name": "総航続距離"
+      },
+      "gasoline_range": {
+        "name": "ガソリン航続距離"
+      },
+      "electric_range": {
+        "name": "電気航続距離"
+      },
+      "ignition_state": {
+        "name": "イグニッション状態"
+      },
+      "ignition_state_time": {
+        "name": "イグニッション状態時刻"
+      },
+      "odometer": {
+        "name": "走行距離計"
+      },
+      "odometer_update_time": {
+        "name": "走行距離計更新時刻"
+      },
+      "location_latitude": {
+        "name": "位置（緯度）"
+      },
+      "location_longitude": {
+        "name": "位置（経度）"
+      },
+      "location_update_time": {
+        "name": "位置更新時刻"
+      },
+      "theft_alarm": {
+        "name": "盗難警報"
+      },
+      "theft_alarm_type": {
+        "name": "盗難警報タイプ"
+      },
+      "privacy_mode": {
+        "name": "プライバシーモード"
+      },
+      "vehicle_temperature": {
+        "name": "車両温度"
+      },
+      "vehicle_accessible": {
+        "name": "車両アクセス可能"
+      },
+      "door_status": {
+        "name": "ドア状態"
+      },
+      "diagnostic_status": {
+        "name": "診断状態"
+      }
+    }
+  }
+}
