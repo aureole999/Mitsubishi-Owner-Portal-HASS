@@ -6,7 +6,23 @@
         "description": "Enter your Mitsubishi Owner Portal credentials",
         "data": {
           "username": "Email",
-          "password": "Password"
+          "password": "Password",
+          "verify_ssl": "Verify SSL Certificate"
+        },
+        "data_description": {
+          "verify_ssl": "Enable SSL certificate verification (recommended)"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure Mitsubishi Owner Portal",
+        "description": "Update your account credentials for {username}",
+        "data": {
+          "username": "Email",
+          "password": "Password",
+          "verify_ssl": "Verify SSL Certificate"
+        },
+        "data_description": {
+          "verify_ssl": "Enable SSL certificate verification (recommended)"
         }
       }
     },
@@ -15,6 +31,25 @@
     },
     "abort": {
       "already_configured": "This account is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configure Mitsubishi Owner Portal",
+        "description": "Update settings for {username}. Leave password empty to keep current password.",
+        "data": {
+          "password": "New Password (optional)",
+          "verify_ssl": "Verify SSL Certificate"
+        },
+        "data_description": {
+          "password": "Enter new password only if you want to change it",
+          "verify_ssl": "Enable SSL certificate verification (recommended)"
+        }
+      }
+    },
+    "error": {
+      "auth_error": "Authentication failed. Please check your credentials and try again."
     }
   },
   "issues": {
