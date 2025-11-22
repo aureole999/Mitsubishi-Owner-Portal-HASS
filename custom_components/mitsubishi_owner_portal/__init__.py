@@ -444,24 +444,18 @@ class VehiclesCoordinator(DataUpdateCoordinator):
                 except (TypeError, ValueError):
                     rsp = {}
 
-        # Parse actual API response structure: vhr[0].dt.diagnostic
-        vhr = rsp.get('vhr', [])
-        if not vhr or not isinstance(vhr, list) or len(vhr) == 0:
-            _LOGGER.error('Invalid API response: missing vhr array. Response keys: %s', list(rsp.keys()) if isinstance(rsp, dict) else type(rsp))
+        # Parse vehiclestate API response structure
+        state = rsp.get('state', {})
+        if not state:
+            _LOGGER.error('Invalid API response: missing state. Response keys: %s', list(rsp.keys()) if isinstance(rsp, dict) else type(rsp))
             return {}
 
-        diagnostic = vhr[0].get('dt', {}).get('diagnostic', {})
-        vehicle_status = vhr[0].get('dt', {}).get('vehicleStatus', {})
-
-        if not diagnostic:
-            _LOGGER.error('Invalid API response: missing diagnostic data in vhr[0].dt')
+        charging_control = state.get('chargingControl', {})
+        if not charging_control:
+            _LOGGER.error('Invalid API response: missing chargingControl in state')
             return {}
 
-        _LOGGER.debug('Diagnostic keys: %s', list(diagnostic.keys()))
-
-        # Use diagnostic as the main data source (replaces old 'charging_control')
-        charging_control = diagnostic
-        state = {'vehicleStatus': vehicle_status}  # For any legacy field access
+        _LOGGER.debug('chargingControl keys: %s', list(charging_control.keys()))
 
         # Helper function to convert timestamp to datetime object
         def parse_timestamp(ts_value):
@@ -486,14 +480,10 @@ class VehiclesCoordinator(DataUpdateCoordinator):
             except (ValueError, TypeError):
                 return default
 
-        # Helper function to get value from diagnostic structure
-        def get_diagnostic_value(field_name):
-            """Get value from diagnostic structure with nested 'value' key."""
-            val = diagnostic.get(field_name)
-            # Handle nested structure with 'value' key (e.g., {"value": "69"})
-            if isinstance(val, dict) and 'value' in val:
-                return val.get('value')
-            return val
+        # Helper function to get value from charging_control
+        def get_control_value(field_name):
+            """Get value from chargingControl structure."""
+            return charging_control.get(field_name)
 
         # Extract location data
         ext_loc_map = state.get('extLocMap', {})
@@ -501,30 +491,22 @@ class VehiclesCoordinator(DataUpdateCoordinator):
         location_lon = safe_number(ext_loc_map.get('lon'))
         location_ts = parse_timestamp(ext_loc_map.get('ts'))
 
-        # Extract odometer data (get the most recent reading)
-        # First try diagnostic structure
-        odo_value = get_diagnostic_value('odo')
-        if odo_value:
-            latest_odo = safe_number(odo_value)
-            # Use diagnostic timestamp for odometer
-            latest_odo_ts = parse_timestamp(get_diagnostic_value('digsts'))
-        else:
-            # Fall back to state.odo structure
-            odo_list = state.get('odo', [])
-            latest_odo = None
-            latest_odo_ts = None
-            if odo_list and isinstance(odo_list, list):
-                latest_odo_entry = odo_list[-1] if odo_list else {}
-                if isinstance(latest_odo_entry, dict) and latest_odo_entry:
-                    # Get the first (and only) key-value pair
-                    for ts_key, odo_value in latest_odo_entry.items():
-                        latest_odo = safe_number(odo_value)
-                        # Odometer timestamp is a string date, parse it and add timezone
-                        try:
-                            latest_odo_ts = datetime.datetime.strptime(ts_key, "%Y-%m-%d %H:%M:%S").replace(tzinfo=datetime.timezone.utc)
-                        except (ValueError, TypeError):
-                            latest_odo_ts = None
-                        break
+        # Extract odometer data (get the most recent reading from odo array)
+        odo_list = state.get('odo', [])
+        latest_odo = None
+        latest_odo_ts = None
+        if odo_list and isinstance(odo_list, list):
+            latest_odo_entry = odo_list[-1] if odo_list else {}
+            if isinstance(latest_odo_entry, dict) and latest_odo_entry:
+                # Get the first (and only) key-value pair
+                for ts_key, odo_value in latest_odo_entry.items():
+                    latest_odo = safe_number(odo_value)
+                    # Odometer timestamp is a string date, parse it and add timezone
+                    try:
+                        latest_odo_ts = datetime.datetime.strptime(ts_key, "%Y-%m-%d %H:%M:%S").replace(tzinfo=datetime.timezone.utc)
+                    except (ValueError, TypeError):
+                        latest_odo_ts = None
+                    break
 
         # Extract cruising range data
         # Try cruisingRangeCombined first, fallback to availRange
@@ -598,13 +580,13 @@ class VehiclesCoordinator(DataUpdateCoordinator):
 
         return {
             # Charging information
-            "Battery": safe_number(get_diagnostic_value('batteryLife')),
-            "Charging_Status": get_diagnostic_value('chargingStatus') or 'unknown',
-            "Charging_Mode": get_diagnostic_value('chargingMode') or 'unknown',
-            "Charging_Plug_Status": get_diagnostic_value('chargePlugConnected') or 'unknown',
-            "Charging_Ready": get_diagnostic_value('chargingReady') or 'unknown',
-            "Time_To_Full_Charge": safe_number(get_diagnostic_value('timeToFullCharge')),
-            "Event_Timestamp": parse_timestamp(get_diagnostic_value('eventTimestamp')),
+            "Battery": safe_number(get_control_value('hvBatteryLife')),
+            "Charging_Status": get_control_value('hvChargingStatus') or 'unknown',
+            "Charging_Mode": get_control_value('hvChargingMode') or 'unknown',
+            "Charging_Plug_Status": get_control_value('hvChargingPlugStatus') or 'unknown',
+            "Charging_Ready": get_control_value('hvChargingReady') or 'unknown',
+            "Time_To_Full_Charge": safe_number(get_control_value('hvTimeToFullCharge')),
+            "Event_Timestamp": parse_timestamp(get_control_value('eventTimestamp')),
 
             # Range information
             "Cruising_Range_Combined": cruising_range_combined,
@@ -612,8 +594,8 @@ class VehiclesCoordinator(DataUpdateCoordinator):
             "Cruising_Range_Electric": cruising_range_electric,
 
             # Vehicle state
-            "Ignition_State": get_diagnostic_value('igst') or 'unknown',
-            "Ignition_State_Timestamp": parse_timestamp(get_diagnostic_value('digsts')),
+            "Ignition_State": state.get('ignitionState') or 'unknown',
+            "Ignition_State_Timestamp": parse_timestamp(state.get('ignitionStateTs')),
             "Odometer": latest_odo,
             "Odometer_Timestamp": latest_odo_ts,
 
