@@ -3,13 +3,15 @@ from __future__ import annotations
 
 import datetime
 import logging
+import ssl
 import time
 from asyncio import TimeoutError
 from typing import Any
 
+import certifi
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
-from aiohttp import ClientConnectorError, ClientSSLError, ContentTypeError
+from aiohttp import ClientConnectorError, ClientSSLError, ContentTypeError, TCPConnector
 from homeassistant.components.persistent_notification import async_create
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
@@ -39,6 +41,7 @@ CONF_USER_ID = 'uid'
 CONF_REFRESH_TOKEN = 'refresh_token'
 CONF_TOKEN_TIME = 'token_time'
 CONF_REFRESH_TOKEN_TIME = 'refresh_token_time'
+CONF_VERIFY_SSL = 'verify_ssl'
 
 DEFAULT_API_BASE = 'https://connect.mitsubishi-motors.co.jp/'
 
@@ -52,6 +55,7 @@ ACCOUNT_SCHEMA = vol.Schema(
         vol.Optional(CONF_USERNAME): cv.string,
         vol.Optional(CONF_PASSWORD): cv.string,
         vol.Optional(CONF_SCAN_INTERVAL, default=SCAN_INTERVAL): cv.time_period,
+        vol.Optional(CONF_VERIFY_SSL, default=True): cv.boolean,
     },
     extra=vol.ALLOW_EXTRA,
 )
@@ -89,6 +93,29 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Unload a config entry."""
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, SUPPORTED_DOMAINS)
+
+    if unload_ok:
+        # Clean up stored data
+        config_data = hass.data.get(DOMAIN, {})
+        if entry.entry_id in config_data:
+            entry_data = config_data.pop(entry.entry_id)
+            # Close HTTP session if it exists
+            if "account" in entry_data and hasattr(entry_data["account"], "http"):
+                await entry_data["account"].http.close()
+            _LOGGER.info("Successfully unloaded Mitsubishi Owner Portal entry: %s", entry.entry_id)
+
+    return unload_ok
+
+
+async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload config entry."""
+    await async_unload_entry(hass, entry)
+    await async_setup_entry(hass, entry)
+
+
 class MitsubishiOwnerPortalAccount:
     """Mitsubishi Owner Portal account handler."""
 
@@ -102,11 +129,47 @@ class MitsubishiOwnerPortalAccount:
         self._config = config
         self.hass = hass
         self.entry = entry
-        self.http = aiohttp_client.async_create_clientsession(hass, auto_cleanup=False)
+
+        # Create SSL context with proper certificate verification
+        ssl_context = self._create_ssl_context()
+        connector = TCPConnector(ssl=ssl_context) if ssl_context else None
+
+        self.http = aiohttp_client.async_create_clientsession(
+            hass,
+            auto_cleanup=False,
+            connector=connector
+        )
 
     def get_config(self, key: str, default: Any = None) -> Any:
         """Get configuration value."""
         return self._config.get(key, default)
+
+    def _create_ssl_context(self) -> ssl.SSLContext | None:
+        """Create SSL context with proper certificate handling."""
+        verify_ssl = self.get_config(CONF_VERIFY_SSL, True)
+
+        if not verify_ssl:
+            # Disable SSL verification (not recommended for production)
+            _LOGGER.warning(
+                "SSL verification is disabled. This is insecure and should only be used for testing."
+            )
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            return ssl_context
+
+        # Create SSL context with updated certificate bundle
+        try:
+            ssl_context = ssl.create_default_context(cafile=certifi.where())
+            ssl_context.check_hostname = True
+            ssl_context.verify_mode = ssl.CERT_REQUIRED
+            # Enable TLS 1.2 and 1.3
+            ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
+            _LOGGER.debug("Created SSL context with certifi certificate bundle")
+            return ssl_context
+        except Exception as exc:
+            _LOGGER.warning("Failed to create SSL context with certifi: %s. Using default.", exc)
+            return None
 
     @property
     def username(self) -> str | None:
@@ -401,22 +464,91 @@ class VehiclesCoordinator(DataUpdateCoordinator):
                 except (TypeError, ValueError):
                     rsp = {}
 
-        ts = rsp.get('state', {}).get('chargingControl', {}).get('eventTimestamp', 'unknown')
-        if ts.isnumeric():
-            dt = datetime.datetime.fromtimestamp(float(ts)).strftime("%Y-%m-%d %H:%M:%S")
-        else:
-            dt = ts
+        state = rsp.get('state', {})
+        charging_control = state.get('chargingControl', {})
+
+        # Helper function to convert timestamp
+        def format_timestamp(ts_value):
+            if ts_value and str(ts_value).isnumeric():
+                return datetime.datetime.fromtimestamp(float(ts_value)).strftime("%Y-%m-%d %H:%M:%S")
+            return ts_value or 'unknown'
+
+        # Extract location data
+        ext_loc_map = state.get('extLocMap', {})
+        location_lat = ext_loc_map.get('lat', 'unknown')
+        location_lon = ext_loc_map.get('lon', 'unknown')
+        location_ts = format_timestamp(ext_loc_map.get('ts'))
+
+        # Extract odometer data (get the most recent reading)
+        odo_list = state.get('odo', [])
+        latest_odo = 'unknown'
+        latest_odo_ts = 'unknown'
+        if odo_list and isinstance(odo_list, list):
+            latest_odo_entry = odo_list[-1] if odo_list else {}
+            if isinstance(latest_odo_entry, dict) and latest_odo_entry:
+                # Get the first (and only) key-value pair
+                for ts_key, odo_value in latest_odo_entry.items():
+                    latest_odo = odo_value
+                    latest_odo_ts = ts_key
+                    break
+
+        # Extract cruising range data
+        cruising_range_combined = charging_control.get('cruisingRangeCombined', 'unknown')
+
+        # Extract first cruising range (gasoline)
+        cruising_range_first_list = charging_control.get('cruisingRangeFirst', [])
+        cruising_range_gasoline = 'unknown'
+        if cruising_range_first_list and isinstance(cruising_range_first_list, list):
+            for item in cruising_range_first_list:
+                if isinstance(item, dict) and item.get('engineType') == '4':
+                    cruising_range_gasoline = item.get('range', 'unknown')
+                    break
+
+        # Extract second cruising range (electric)
+        cruising_range_second_list = charging_control.get('cruisingRangeSecond', [])
+        cruising_range_electric = 'unknown'
+        if cruising_range_second_list and isinstance(cruising_range_second_list, list):
+            for item in cruising_range_second_list:
+                if isinstance(item, dict) and item.get('engineType') == '5':
+                    cruising_range_electric = item.get('range', 'unknown')
+                    break
 
         return {
-            "Battery": rsp.get('state', {}).get('chargingControl', {}).get('hvBatteryLife', 'unknown'),
-            "Charging_Status": rsp.get('state', {}).get('chargingControl', {}).get('hvChargingStatus', 'unknown'),
-            "Charging_Mode": rsp.get('state', {}).get('chargingControl', {}).get('hvChargingMode', 'unknown'),
-            "Charging_Plug_Status": rsp.get('state', {}).get('chargingControl', {}).get('hvChargingPlugStatus',
-                                                                                        'unknown'),
-            "Charging_Ready": rsp.get('state', {}).get('chargingControl', {}).get('hvChargingReady', 'unknown'),
-            "Time_To_Full_Charge": rsp.get('state', {}).get('chargingControl', {}).get('hvTimeToFullCharge', 'unknown'),
-            "Ignition_State": rsp.get('state', {}).get('ignitionState', 'unknown'),
-            "Event_Timestamp": dt
+            # Charging information
+            "Battery": charging_control.get('hvBatteryLife', 'unknown'),
+            "Charging_Status": charging_control.get('hvChargingStatus', 'unknown'),
+            "Charging_Mode": charging_control.get('hvChargingMode', 'unknown'),
+            "Charging_Plug_Status": charging_control.get('hvChargingPlugStatus', 'unknown'),
+            "Charging_Ready": charging_control.get('hvChargingReady', 'unknown'),
+            "Time_To_Full_Charge": charging_control.get('hvTimeToFullCharge', 'unknown'),
+            "Event_Timestamp": format_timestamp(charging_control.get('eventTimestamp')),
+
+            # Range information
+            "Cruising_Range_Combined": cruising_range_combined,
+            "Cruising_Range_Gasoline": cruising_range_gasoline,
+            "Cruising_Range_Electric": cruising_range_electric,
+
+            # Vehicle state
+            "Ignition_State": state.get('ignitionState', 'unknown'),
+            "Ignition_State_Timestamp": format_timestamp(state.get('ignitionStateTs')),
+            "Odometer": latest_odo,
+            "Odometer_Timestamp": latest_odo_ts,
+
+            # Location information
+            "Location_Latitude": location_lat,
+            "Location_Longitude": location_lon,
+            "Location_Timestamp": location_ts,
+
+            # Security and status
+            "Theft_Alarm": state.get('theftAlarm', 'unknown'),
+            "Theft_Alarm_Type": state.get('theftAlarmType', 'unknown'),
+            "Privacy_Mode": state.get('privacy', 'unknown'),
+            "Temperature": state.get('temp', 'unknown'),
+            "Accessible": state.get('accessible', 'unknown'),
+
+            # Other states
+            "Door_Status": state.get('ods', 'unknown'),
+            "Diagnostic": state.get('diagnostic', 'unknown'),
         }
 
     async def async_remote_operation(self):
