@@ -1,9 +1,12 @@
 {
   "domain": "mitsubishi_owner_portal",
   "name": "Mitsubishi Owner Portal",
+  "codeowners": ["@aureole999"],
   "config_flow": true,
-  "version": "0.0.1",
+  "documentation": "https://github.com/aureole999/Mitsubishi-Owner-Portal-HASS",
+  "issue_tracker": "https://github.com/aureole999/Mitsubishi-Owner-Portal-HASS/issues",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
   "requirements": [],
-  "codeowners": [],
-  "iot_class": "cloud_polling"
+  "version": "1.0.0"
 }

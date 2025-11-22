@@ -1,23 +1,33 @@
-"""The component."""
+"""The Mitsubishi Owner Portal integration."""
+from __future__ import annotations
+
 import datetime
 import logging
 import time
 from asyncio import TimeoutError
+from typing import Any
 
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
-from aiohttp import ClientConnectorError, ContentTypeError
+from aiohttp import ClientConnectorError, ClientSSLError, ContentTypeError
+from homeassistant.components.persistent_notification import async_create
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import *
+from homeassistant.const import (
+    CONF_PASSWORD,
+    CONF_SCAN_INTERVAL,
+    CONF_TOKEN,
+    CONF_USERNAME,
+)
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import aiohttp_client
+from homeassistant.helpers import aiohttp_client, issue_registry as ir
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
     DataUpdateCoordinator,
+    UpdateFailed,
 )
 
-from custom_components.mitsubishi_owner_portal.const import DOMAIN
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -58,44 +68,15 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-async def async_setup(hass: HomeAssistant, hass_config: dict):
-    # hass.data.setdefault(DOMAIN, {})
-    # config = hass_config.get(DOMAIN) or {}
-    # hass.data[DOMAIN]['config'] = config
-    # hass.data[DOMAIN].setdefault(CONF_ACCOUNTS, {})
-    # hass.data[DOMAIN].setdefault(CONF_DEVICES, {})
-    # hass.data[DOMAIN].setdefault('coordinators', {})
-    # hass.data[DOMAIN].setdefault('add_entities', {})
-    #
-    # component = EntityComponent(_LOGGER, DOMAIN, hass, SCAN_INTERVAL)
-    # hass.data[DOMAIN]['component'] = component
-    # await component.async_setup(config)
-    #
-    # als = config.get(CONF_ACCOUNTS) or []
-    # if CONF_PASSWORD in config:
-    #     acc = {**config}
-    #     acc.pop(CONF_ACCOUNTS, None)
-    #     als.append(acc)
-    # for cfg in als:
-    #     if not cfg.get(CONF_PASSWORD) and not cfg.get(CONF_TOKEN):
-    #         continue
-    #     acc = MitsubishiOwnerPortalAccount(hass, cfg)
-    #     coordinator = VehiclesCoordinator(acc)
-    #     await coordinator.async_config_entry_first_refresh()
-    #     hass.data[DOMAIN][CONF_ACCOUNTS][acc.uid] = acc
-    #     hass.data[DOMAIN]['coordinators'][coordinator.name] = coordinator
-    #
-    # for platform in SUPPORTED_DOMAINS:
-    #     hass.async_create_task(
-    #         hass.helpers.discovery.async_load_platform(platform, DOMAIN, {}, config)
-    #     )
-
+async def async_setup(hass: HomeAssistant, hass_config: dict[str, Any]) -> bool:
+    """Set up the Mitsubishi Owner Portal component."""
     return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up Mitsubishi Owner Portal from a config entry."""
     config_data = hass.data.setdefault(DOMAIN, {})
-    account = MitsubishiOwnerPortalAccount(hass, entry.data.get("account"))
+    account = MitsubishiOwnerPortalAccount(hass, entry.data.get("account"), entry=entry)
     vehicles_data = await account.async_get_vehicles()
     vhs = []
     for vehicle in vehicles_data:
@@ -109,54 +90,75 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 class MitsubishiOwnerPortalAccount:
-    def __init__(self, hass: HomeAssistant, config: dict):
+    """Mitsubishi Owner Portal account handler."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        config: dict[str, Any],
+        entry: ConfigEntry | None = None,
+    ) -> None:
+        """Initialize the account."""
         self._config = config
         self.hass = hass
+        self.entry = entry
         self.http = aiohttp_client.async_create_clientsession(hass, auto_cleanup=False)
 
-    def get_config(self, key, default=None):
+    def get_config(self, key: str, default: Any = None) -> Any:
+        """Get configuration value."""
         return self._config.get(key, default)
 
     @property
-    def username(self):
+    def username(self) -> str | None:
+        """Get username."""
         return self.get_config(CONF_USERNAME)
 
     @property
-    def password(self):
-        pwd = self.get_config(CONF_PASSWORD)
-        return pwd
+    def password(self) -> str | None:
+        """Get password."""
+        return self.get_config(CONF_PASSWORD)
 
     @property
-    def uid(self):
+    def uid(self) -> str:
+        """Get user ID."""
         return self.get_config(CONF_USER_ID) or ''
 
     @property
-    def token(self):
+    def token(self) -> str:
+        """Get access token."""
         return self.get_config(CONF_TOKEN) or ''
 
     @property
-    def token_time(self):
-        return self.get_config(CONF_TOKEN_TIME) or ''
+    def token_time(self) -> float:
+        """Get token timestamp."""
+        return self.get_config(CONF_TOKEN_TIME) or 0
 
     @property
-    def refresh_token(self):
+    def refresh_token(self) -> str:
+        """Get refresh token."""
         return self.get_config(CONF_REFRESH_TOKEN) or ''
 
     @property
-    def refresh_token_time(self):
+    def refresh_token_time(self) -> float:
+        """Get refresh token timestamp."""
         return self.get_config(CONF_REFRESH_TOKEN_TIME) or 0
 
     @property
-    def update_interval(self):
+    def update_interval(self) -> datetime.timedelta:
+        """Get update interval."""
         return self.get_config(CONF_SCAN_INTERVAL) or SCAN_INTERVAL
 
-    def api_url(self, api=''):
+    def api_url(self, api: str = '') -> str:
+        """Build API URL."""
         if api[:6] == 'https:' or api[:5] == 'http:':
             return api
         bas = self.get_config(CONF_API_BASE) or DEFAULT_API_BASE
         return f"{bas.rstrip('/')}/{api.lstrip('/')}"
 
-    async def request(self, api, pms=None, method='GET', **kwargs):
+    async def request(
+        self, api: str, pms: dict[str, Any] | None = None, method: str = 'GET', **kwargs: Any
+    ) -> dict[str, Any]:
+        """Make API request."""
         method = method.upper()
         url = self.api_url(api)
         kws = {
@@ -179,14 +181,79 @@ class MitsubishiOwnerPortalAccount:
         try:
             req = await self.http.request(method, url, **kws)
             return await req.json(content_type=None) or {}
-        except (ClientConnectorError, ContentTypeError, TimeoutError) as exc:
-            lgs = [method, url, pms, exc]
+        except ClientSSLError as exc:
+            # SSL Certificate error - create repair issue
+            _LOGGER.error('SSL certificate error connecting to %s: %s', url, exc)
+            self._create_ssl_error_issue(url, str(exc))
+            raise UpdateFailed(f"SSL certificate error: {exc}") from exc
+        except ClientConnectorError as exc:
+            # Mask sensitive data in logs
+            safe_pms = {**pms} if pms else {}
+            if 'password' in safe_pms:
+                safe_pms['password'] = '***'
+            if 'refresh_token' in safe_pms:
+                safe_pms['refresh_token'] = safe_pms['refresh_token'][:10] + '...'
+
+            _LOGGER.error(
+                'Connection error to Mitsubishi API: method=%s, url=%s, error=%s',
+                method,
+                url,
+                type(exc).__name__,
+            )
+            _LOGGER.debug('Request params (safe): %s', safe_pms)
+
+            # Check if it's a certificate error
+            if 'CERTIFICATE' in str(exc).upper() or 'SSL' in str(exc).upper():
+                self._create_ssl_error_issue(url, str(exc))
+
             if req:
-                lgs.extend([req.status, req.content])
-            _LOGGER.error('Request Mitsubishi owner portal api failed: %s', lgs)
+                _LOGGER.debug('Response status: %s', req.status)
+
+        except (ContentTypeError, TimeoutError) as exc:
+            _LOGGER.error(
+                'Request to Mitsubishi API failed: method=%s, url=%s, error=%s',
+                method,
+                url,
+                type(exc).__name__,
+            )
+
         return {}
 
-    async def async_login(self):
+    def _create_ssl_error_issue(self, url: str, error: str) -> None:
+        """Create a repair issue for SSL certificate errors."""
+        if not self.entry:
+            return
+
+        ir.async_create_issue(
+            self.hass,
+            DOMAIN,
+            f"ssl_certificate_error_{self.entry.entry_id}",
+            is_fixable=False,
+            severity=ir.IssueSeverity.ERROR,
+            translation_key="ssl_certificate_error",
+            translation_placeholders={
+                "url": url,
+                "error": error,
+            },
+        )
+
+        # Also create a persistent notification for immediate visibility
+        async_create(
+            self.hass,
+            f"SSL certificate error when connecting to Mitsubishi Owner Portal.\n\n"
+            f"URL: {url}\n"
+            f"Error: {error}\n\n"
+            f"This usually means:\n"
+            f"1. The server's SSL certificate has expired\n"
+            f"2. Your system's CA certificates need updating\n"
+            f"3. There's a network issue\n\n"
+            f"Please check the [repair issues](/config/repairs) for more details.",
+            title="Mitsubishi Owner Portal SSL Error",
+            notification_id=f"mitsubishi_ssl_error_{self.entry.entry_id}",
+        )
+
+    async def async_login(self) -> bool:
+        """Log in to Mitsubishi Owner Portal."""
         pms = {
             'grant_type': 'password',
             'username': self.username,
@@ -198,24 +265,57 @@ class MitsubishiOwnerPortalAccount:
         if not account_dn:
             _LOGGER.error('Mitsubishi owner portal login %s failed: %s', self.username, rsp)
             return False
+
+        # Update in-memory config
+        current_time = time.time()
         self._config.update({
             CONF_TOKEN: access_token,
-            CONF_TOKEN_TIME: time.time(),
+            CONF_TOKEN_TIME: current_time,
             CONF_REFRESH_TOKEN: rsp.get('refresh_token'),
-            CONF_REFRESH_TOKEN_TIME: time.time(),
+            CONF_REFRESH_TOKEN_TIME: current_time,
             CONF_USER_ID: account_dn,
         })
+
+        # Persist to config entry
+        if self.entry:
+            self.hass.config_entries.async_update_entry(
+                self.entry,
+                data={
+                    **self.entry.data,
+                    "account": self._config.copy(),
+                },
+            )
+            _LOGGER.info("Login successful, credentials saved to config entry")
+        else:
+            _LOGGER.info("Login successful (no config entry to save)")
+
         return True
 
-    async def async_check_token(self):
+    async def async_check_token(self) -> None:
+        """Check and refresh token if needed."""
+        current_time = time.time()
+        token_age = current_time - self.token_time if self.token_time else 0
+        refresh_token_age = current_time - self.refresh_token_time if self.refresh_token_time else 0
+
+        _LOGGER.debug(
+            "Token check: token_age=%ds, refresh_age=%ds, uid=%s",
+            int(token_age),
+            int(refresh_token_age),
+            self.uid or "None",
+        )
+
         if None in [self.uid, self.token, self.token_time, self.refresh_token, self.refresh_token_time]:
+            _LOGGER.info("Missing credentials, performing login")
             await self.async_login()
-        elif time.time() - self.refresh_token_time > 2590000:
+        elif refresh_token_age > 2590000:  # ~30 days
+            _LOGGER.info("Refresh token expired (age: %d days), performing re-login", int(refresh_token_age / 86400))
             await self.async_login()
-        elif time.time() - self.token_time > 1500:
+        elif token_age > 1500:  # 25 minutes
+            _LOGGER.debug("Access token expired (age: %d minutes), refreshing", int(token_age / 60))
             await self.async_refresh_token()
 
-    async def async_refresh_token(self):
+    async def async_refresh_token(self) -> bool:
+        """Refresh access token."""
         pms = {
             'grant_type': 'refresh_token',
             'refresh_token': self.refresh_token,
@@ -225,14 +325,29 @@ class MitsubishiOwnerPortalAccount:
         if not access_token:
             _LOGGER.warning('Mitsubishi owner portal refresh token failed: %s', rsp)
             return await self.async_login()
+
+        # Update in-memory config
         self._config.update({
             CONF_TOKEN: access_token,
             CONF_TOKEN_TIME: time.time(),
             CONF_REFRESH_TOKEN: rsp.get('refresh_token'),
         })
+
+        # Persist to config entry
+        if self.entry:
+            self.hass.config_entries.async_update_entry(
+                self.entry,
+                data={
+                    **self.entry.data,
+                    "account": self._config.copy(),
+                },
+            )
+            _LOGGER.debug("Access token refreshed and saved to config entry")
+
         return True
 
-    async def async_get_vehicles(self):
+    async def async_get_vehicles(self) -> list[dict[str, Any]]:
+        """Get list of vehicles."""
         await self.async_check_token()
         api = f'user/v1/users/{self.uid}/vehicles'
         rsp = await self.request(api)
@@ -248,21 +363,26 @@ class MitsubishiOwnerPortalAccount:
 
 
 class VehiclesCoordinator(DataUpdateCoordinator):
-    def __init__(self, vin: str, account: MitsubishiOwnerPortalAccount):
+    """Vehicle data update coordinator."""
+
+    def __init__(self, vin: str, account: MitsubishiOwnerPortalAccount) -> None:
+        """Initialize the coordinator."""
         super().__init__(
             account.hass,
             _LOGGER,
-            name=f'{DOMAIN}-{account.uid}-{CONF_DEVICES}',
+            name=f'{DOMAIN}-{account.uid}-{vin}',
             update_interval=account.update_interval,
         )
         self.account = account
         self.vin = vin
         self._subs = {}
 
-    async def _async_update_data(self):
+    async def _async_update_data(self) -> dict[str, Any]:
+        """Fetch data from API endpoint."""
         return await self.update_vehicle_detail()
 
-    async def update_vehicle_detail(self):
+    async def update_vehicle_detail(self) -> dict[str, Any]:
+        """Update vehicle detail."""
         # if not await self.async_remote_operation():
         #     return {}
         await self.account.async_check_token()
@@ -340,26 +460,33 @@ class VehiclesCoordinator(DataUpdateCoordinator):
 
 
 class Vehicle:
-    data: dict
+    """Vehicle data model."""
 
-    def __init__(self, dat: dict):
-        self.data = dat
+    def __init__(self, dat: dict[str, Any]) -> None:
+        """Initialize vehicle."""
+        self.data: dict[str, Any] = dat
 
     @property
-    def vin(self):
+    def vin(self) -> str | None:
+        """Get VIN."""
         return self.data.get('vin')
 
     @property
-    def vehicle_model(self):
+    def vehicle_model(self) -> str:
+        """Get vehicle model."""
         return self.data.get('model', '')
 
     @property
-    def vehicle_model_name(self):
+    def vehicle_model_name(self) -> str:
+        """Get vehicle model name."""
         return self.data.get('modelDescription', '')
 
 
 class MitsubishiOwnerPortalEntity(CoordinatorEntity[VehiclesCoordinator]):
-    def __init__(self, vehicle, coordinator):
+    """Base entity for Mitsubishi Owner Portal."""
+
+    def __init__(self, vehicle: Vehicle, coordinator: VehiclesCoordinator) -> None:
+        """Initialize the entity."""
         super().__init__(coordinator)
         self.vehicle = vehicle
         self._attr_name = vehicle.vehicle_model_name

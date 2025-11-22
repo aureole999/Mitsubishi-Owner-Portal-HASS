@@ -1,0 +1,26 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add Mitsubishi Owner Portal account",
+        "description": "Enter your Mitsubishi Owner Portal credentials",
+        "data": {
+          "username": "Email",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "auth_error": "Authentication failed. Please check your credentials and try again."
+    },
+    "abort": {
+      "already_configured": "This account is already configured."
+    }
+  },
+  "issues": {
+    "ssl_certificate_error": {
+      "title": "SSL Certificate Error",
+      "description": "Failed to connect to Mitsubishi Owner Portal due to an SSL certificate error.\n\n**URL:** {url}\n\n**Error:** {error}\n\n**Possible causes:**\n1. The server's SSL certificate has expired\n2. Your system's CA certificates need updating\n3. Network connectivity issues\n\n**Solutions:**\n- Wait for Mitsubishi to fix the certificate (if it's expired on their end)\n- Update your system's CA certificates\n- Check your network connection and firewall settings\n- Contact Mitsubishi technical support if the issue persists"
+    }
+  }
+}
