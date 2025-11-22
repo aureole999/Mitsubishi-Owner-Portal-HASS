@@ -7,7 +7,7 @@
 
 Home Assistant 的三菱车主门户（日本）自定义集成。
 
-此集成允许您通过官方三菱车主门户 API 监控您的三菱电动汽车。
+此集成允许您通过官方[三菱车主门户](https://connect.mitsubishi-motors.co.jp/) API 监控您的三菱电动汽车。
 
 [English Documentation](README.md) | [日本語ドキュメント](README_JP.md)
 
@@ -126,8 +126,15 @@ Home Assistant 的三菱车主门户（日本）自定义集成。
 ## 系统要求
 
 - Home Assistant 2024.1.0 或更新版本
-- 有效的三菱车主门户账户（日本）
+- 有效的[三菱车主门户](https://connect.mitsubishi-motors.co.jp/)账户（日本）
 - 已注册到您账户的三菱电动汽车
+
+## 已测试车型
+
+此集成已在以下车型上测试：
+- **三菱欧蓝德 PHEV（2022+）**
+
+**注意：** 不保证与其他三菱车型兼容。该集成可能适用于支持三菱车主门户的其他车辆，但功能和传感器可能因车型和年份而异。
 
 ## 故障排除
 

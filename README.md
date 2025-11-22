@@ -7,7 +7,7 @@
 
 Home Assistant custom integration for Mitsubishi Owner Portal (Japan).
 
-This integration allows you to monitor your Mitsubishi electric vehicle through the official Mitsubishi Owner Portal API.
+This integration allows you to monitor your Mitsubishi electric vehicle through the official [Mitsubishi Owner Portal](https://connect.mitsubishi-motors.co.jp/) API.
 
 [日本語ドキュメント](README_JP.md) | [简体中文文档](README_CN.md)
 
@@ -59,22 +59,52 @@ Your vehicle will be automatically discovered and added to Home Assistant.
 
 The integration creates the following sensors for each vehicle:
 
-| Sensor | Description | Unit |
-|--------|-------------|------|
-| Current Battery Level | Battery state of charge | % |
-| Charging Status | Current charging status | - |
-| Charging Plug Status | Plug connection status | - |
-| Charging Mode | Charging mode | - |
-| Charging Ready | Charging readiness | - |
-| Ignition State | Vehicle ignition state | - |
-| Time To Full Charge | Time remaining to full charge | minutes |
-| Event Timestamp | Last update timestamp | - |
+### Battery & Charging
+- Current Battery Level (%)
+- Charging Status
+- Charging Plug Status
+- Charging Mode
+- Charging Ready
+- Time to Full Charge (minutes)
+- Last Update Time
+
+### Range Information
+- Total Cruising Range (km)
+- Gasoline Range (km)
+- Electric Range (km)
+
+### Vehicle State
+- Ignition State
+- Ignition State Time
+- Odometer (km)
+- Odometer Update Time
+
+### Location
+- Location Latitude
+- Location Longitude
+- Location Update Time
+
+### Security & Status
+- Theft Alarm
+- Theft Alarm Type
+- Privacy Mode
+- Vehicle Temperature (°C)
+- Vehicle Accessible
+- Door Status
+- Diagnostic Status
 
 ## Requirements
 
 - Home Assistant 2024.1.0 or newer
-- Valid Mitsubishi Owner Portal account (Japan)
+- Valid [Mitsubishi Owner Portal](https://connect.mitsubishi-motors.co.jp/) account (Japan)
 - Mitsubishi electric vehicle registered to your account
+
+## Tested Vehicles
+
+This integration has been tested with:
+- **Mitsubishi Outlander PHEV (2022+)**
+
+**Note:** Compatibility with other Mitsubishi models is not guaranteed. The integration may work with other vehicles that support the Mitsubishi Owner Portal, but features and sensors may vary depending on the vehicle model and year.
 
 ## Troubleshooting
 
