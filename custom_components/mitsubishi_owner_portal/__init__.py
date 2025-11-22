@@ -486,9 +486,9 @@ class VehiclesCoordinator(DataUpdateCoordinator):
                 # Get the first (and only) key-value pair
                 for ts_key, odo_value in latest_odo_entry.items():
                     latest_odo = safe_number(odo_value)
-                    # Odometer timestamp is a string date, parse it
+                    # Odometer timestamp is a string date, parse it and add timezone
                     try:
-                        latest_odo_ts = datetime.datetime.strptime(ts_key, "%Y-%m-%d %H:%M:%S")
+                        latest_odo_ts = datetime.datetime.strptime(ts_key, "%Y-%m-%d %H:%M:%S").replace(tzinfo=datetime.timezone.utc)
                     except (ValueError, TypeError):
                         latest_odo_ts = None
                     break
