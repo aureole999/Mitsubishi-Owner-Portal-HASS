@@ -8,5 +8,5 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/aureole999/Mitsubishi-Owner-Portal-HASS/issues",
   "requirements": [],
-  "version": "1.0.0-beta.5"
+  "version": "1.0.0-beta.6"
 }
