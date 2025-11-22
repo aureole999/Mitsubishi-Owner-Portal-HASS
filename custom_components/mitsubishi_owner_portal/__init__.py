@@ -3,15 +3,13 @@ from __future__ import annotations
 
 import datetime
 import logging
-import ssl
 import time
 from asyncio import TimeoutError
 from typing import Any
 
-import certifi
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
-from aiohttp import ClientConnectorError, ClientSSLError, ContentTypeError, TCPConnector
+from aiohttp import ClientConnectorError, ClientSSLError, ContentTypeError
 from homeassistant.components.persistent_notification import async_create
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
@@ -130,46 +128,23 @@ class MitsubishiOwnerPortalAccount:
         self.hass = hass
         self.entry = entry
 
-        # Create SSL context with proper certificate verification
-        ssl_context = self._create_ssl_context()
-        connector = TCPConnector(ssl=ssl_context) if ssl_context else None
+        # Determine if SSL verification should be enabled
+        verify_ssl = self.get_config(CONF_VERIFY_SSL, True)
+
+        if not verify_ssl:
+            _LOGGER.warning(
+                "SSL verification is disabled. This is insecure and should only be used for testing."
+            )
 
         self.http = aiohttp_client.async_create_clientsession(
             hass,
+            verify_ssl=verify_ssl,
             auto_cleanup=False,
-            connector=connector
         )
 
     def get_config(self, key: str, default: Any = None) -> Any:
         """Get configuration value."""
         return self._config.get(key, default)
-
-    def _create_ssl_context(self) -> ssl.SSLContext | None:
-        """Create SSL context with proper certificate handling."""
-        verify_ssl = self.get_config(CONF_VERIFY_SSL, True)
-
-        if not verify_ssl:
-            # Disable SSL verification (not recommended for production)
-            _LOGGER.warning(
-                "SSL verification is disabled. This is insecure and should only be used for testing."
-            )
-            ssl_context = ssl.create_default_context()
-            ssl_context.check_hostname = False
-            ssl_context.verify_mode = ssl.CERT_NONE
-            return ssl_context
-
-        # Create SSL context with updated certificate bundle
-        try:
-            ssl_context = ssl.create_default_context(cafile=certifi.where())
-            ssl_context.check_hostname = True
-            ssl_context.verify_mode = ssl.CERT_REQUIRED
-            # Enable TLS 1.2 and 1.3
-            ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
-            _LOGGER.debug("Created SSL context with certifi certificate bundle")
-            return ssl_context
-        except Exception as exc:
-            _LOGGER.warning("Failed to create SSL context with certifi: %s. Using default.", exc)
-            return None
 
     @property
     def username(self) -> str | None:
