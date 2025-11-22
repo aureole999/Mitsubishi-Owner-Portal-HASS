@@ -445,7 +445,11 @@ class VehiclesCoordinator(DataUpdateCoordinator):
         # Helper function to convert timestamp
         def format_timestamp(ts_value):
             if ts_value and str(ts_value).isnumeric():
-                return datetime.datetime.fromtimestamp(float(ts_value)).strftime("%Y-%m-%d %H:%M:%S")
+                timestamp = float(ts_value)
+                # Check if timestamp is in milliseconds (13 digits) and convert to seconds
+                if timestamp > 10000000000:  # Timestamps after year 2286 are likely in milliseconds
+                    timestamp = timestamp / 1000
+                return datetime.datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S")
             return ts_value or 'unknown'
 
         # Extract location data
