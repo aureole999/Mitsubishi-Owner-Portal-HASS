@@ -431,12 +431,13 @@ class VehiclesCoordinator(DataUpdateCoordinator):
         api = f'avi/v1/vehicles/{self.vin}/vehiclestate'
         try:
             rsp = await self.account.request(api)
+            _LOGGER.debug('Vehicle state API response structure: %s', list(rsp.keys()) if isinstance(rsp, dict) else type(rsp))
         except (TypeError, ValueError) as exc:
             rsp = {}
             _LOGGER.error('Got vehicle detail for %s failed: %s', self.vin, exc)
 
         if not rsp.get('state', {}):
-            _LOGGER.warning('Got vehicle detail for %s failed: %s', self.vin, rsp)
+            _LOGGER.warning('Got vehicle detail for %s failed. Response keys: %s', self.vin, list(rsp.keys()) if isinstance(rsp, dict) else rsp)
             if await self.account.async_login():
                 try:
                     rsp = await self.account.request(api)
@@ -493,7 +494,15 @@ class VehiclesCoordinator(DataUpdateCoordinator):
                     break
 
         # Extract cruising range data
+        # Try cruisingRangeCombined first, fallback to availRange
         cruising_range_combined = safe_number(charging_control.get('cruisingRangeCombined'))
+        if cruising_range_combined is None:
+            # Fallback: try to get availRange from diagnostic data
+            avail_range = safe_number(charging_control.get('availRange'))
+            if avail_range is None and isinstance(charging_control.get('availRange'), dict):
+                avail_range = safe_number(charging_control.get('availRange', {}).get('value'))
+            cruising_range_combined = avail_range
+            _LOGGER.debug('Using availRange as combined range: %s', cruising_range_combined)
 
         # Extract first cruising range (gasoline)
         cruising_range_first_list = charging_control.get('cruisingRangeFirst', [])
@@ -504,6 +513,18 @@ class VehiclesCoordinator(DataUpdateCoordinator):
                     cruising_range_gasoline = safe_number(item.get('range'))
                     break
 
+        # Try alternative structure for gasoline range
+        if cruising_range_gasoline is None and isinstance(charging_control.get('cruisingRangeFirst'), dict):
+            cruising_range_data = charging_control.get('cruisingRangeFirst', {}).get('cruisingRange', [])
+            for item in cruising_range_data:
+                if isinstance(item, dict):
+                    # Try range_2 structure
+                    range_data = item.get('range_2', item.get('range', {}))
+                    if isinstance(range_data, dict):
+                        cruising_range_gasoline = safe_number(range_data.get('value'))
+                        if cruising_range_gasoline:
+                            break
+
         # Extract second cruising range (electric)
         cruising_range_second_list = charging_control.get('cruisingRangeSecond', [])
         cruising_range_electric = None
@@ -512,6 +533,28 @@ class VehiclesCoordinator(DataUpdateCoordinator):
                 if isinstance(item, dict) and item.get('engineType') == '5':
                     cruising_range_electric = safe_number(item.get('range'))
                     break
+
+        # Try alternative structure for electric range
+        if cruising_range_electric is None and isinstance(charging_control.get('cruisingRangeSecond'), dict):
+            cruising_range_data = charging_control.get('cruisingRangeSecond', {}).get('cruisingRange', [])
+            for item in cruising_range_data:
+                if isinstance(item, dict):
+                    # Try range_3 structure
+                    range_data = item.get('range_3', item.get('range', {}))
+                    if isinstance(range_data, dict):
+                        cruising_range_electric = safe_number(range_data.get('value'))
+                        if cruising_range_electric:
+                            break
+
+        # Calculate gasoline range from combined if available and gasoline range seems unrealistic
+        # (PHEV gasoline range shouldn't exceed combined range significantly)
+        if cruising_range_combined and cruising_range_electric:
+            calculated_gasoline = cruising_range_combined - cruising_range_electric
+            # If parsed gasoline range is much larger than combined (unrealistic), use calculated
+            if cruising_range_gasoline is None or cruising_range_gasoline > cruising_range_combined * 2:
+                _LOGGER.debug('Gasoline range (%s) seems unrealistic, calculating from combined (%s) - electric (%s) = %s',
+                            cruising_range_gasoline, cruising_range_combined, cruising_range_electric, calculated_gasoline)
+                cruising_range_gasoline = calculated_gasoline if calculated_gasoline > 0 else None
 
         return {
             # Charging information
